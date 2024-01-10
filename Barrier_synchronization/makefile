@@ -1,23 +1,13 @@
-OMPFLAGS = -fopenmp 		# OMP compiler flags 
-OMPLIBS = -lgomp -lm		# OMP runtime library and math library
+all: centralized dissemination tournament
 
-CC = gcc					# C compiler 
-CPPFLAGS = -g $(OMPFLAGS)	# C preprocessor flags, includes debugging flag and OMP flags
-LDFLAGS = -g $(OMPFLAGS) 	# Linker flags, including debugging flag and OMP flags
-LDLIBS = $(OMPLIBS)			# Linker libraries, include the OMP libraries
+centralized: centralized.c
+	gcc -fopenmp centralized.c -o centralized
 
-# The default target. It depends on three other targets 
-all: tournament dissemination centralized
+dissemination: dissemination.c
+	gcc -fopenmp -lm dissemination.c -o dissemination
 
-tournament: tournament.o
-	        $(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
-
-dissemination: dissemination.o
-	        $(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
-
-centralized: centralized.o
-	        $(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
-
-# A target to remove the object files (*.o) and the executables. 
-# This is useful for cleaning up the project directory.
-clean: rm -f *.o tournament dissemination centralized
+tournament: tournament.c
+	gcc -fopenmp tournament.c -o tournament
+	
+clean:
+	rm -f *.exe centralized dissemination tournament
