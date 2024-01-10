@@ -21,7 +21,7 @@ void dissemination_barrier( flags *localflags, int *sense, int *parity, int *pro
 		proc: Number of processors (log2 of the number of threads)
 	*/
 
-	int p = *parity;	// copy the value of 'parity' to 'p'
+	int p = *parity;
 	int i;
 	for(i = 0; i < *proc; i++) {
 		#pragma omp critical 
@@ -40,7 +40,7 @@ void dissemination_barrier( flags *localflags, int *sense, int *parity, int *pro
 int main(int argc, char **argv) {
 
 	// check syntax
-	if(argc==3) {
+	if (argc==3) {
 		NUM_THREADS = atoi(argv[1]);		// ASCII to integer
 		NUM_BARRIERS = atoi(argv[2]);		// ASCII to integer
 	} else {
@@ -49,14 +49,16 @@ int main(int argc, char **argv) {
     }
 
 	omp_set_num_threads(NUM_THREADS);
-	double time1, time2;		
+	double startTime[NUM_BARRIERS][NUM_THREADS];
+	double endTime[NUM_BARRIERS][NUM_THREADS];
+
 	flags allnodes[NUM_THREADS]; 				// array of flags, each is a flag for a thread
 	int proc = ceil(log(NUM_THREADS)/log(2));	// number of rounds
 
 	#pragma omp parallel shared(allnodes, proc) 
 	{
 		int thread_num = omp_get_thread_num();
-		int numthreads = omp_get_num_threads();
+		int num_threads = omp_get_num_threads();
 
 		int i, j, k, l, m;
 		int parity = 0; 	//processor private
@@ -72,7 +74,8 @@ int main(int argc, char **argv) {
 					allnodes[l].myflags[m][k] = 0;
 
 		for (i = 0; i < NUM_BARRIERS; i++) {
-			printf("Hello world from thread %d of %d\n", thread_num, numthreads);
+			for (j = 0; j < 5000; j++);
+			printf("Thread %d of %d entering barrier %d.\n", thread_num, num_threads, i+1);
 
 			// initialize partner flags
 			#pragma omp critical
@@ -86,11 +89,54 @@ int main(int argc, char **argv) {
 				}
 			}
 
-			time1 = omp_get_wtime()*1000000;
+			startTime[i][thread_num] = omp_get_wtime();
 			dissemination_barrier(localflags, &sense, &parity, &proc);
-			time2 = omp_get_wtime()*1000000;
-			printf("Hello world from thread %d of %d after barrier\n", thread_num, numthreads);
+			endTime[i][thread_num] = omp_get_wtime();
+			printf("Thread %d of %d exiting barrier %d.\n", thread_num, num_threads, i+1);
 		}
-		printf("Time spent in barrier by thread %d is %f\n", thread_num, time2-time1);
 	}
+
+	// Time taken of each thread at each barrier
+	int i = 0, j;
+	while(i < NUM_BARRIERS) { 
+		j = 0;
+		printf("At Barrier #%d:\n", i+1);
+		while(j < NUM_THREADS) {
+			printf("Time taken by Thread #%d to complete = %f\n", j+1, endTime[i][j]-startTime[i][j]);
+			j++;
+		}
+		i++;
+	}
+	printf("\n\n");
+
+	// Avg time taken of each thread
+	i = 0;
+	while(i < NUM_THREADS) {
+		j = 0;
+		float sum = 0.0;
+		while(j < NUM_BARRIERS) {
+			sum += endTime[j][i]-startTime[j][i];
+			j++;
+		}
+		printf("Average time taken by Thread #%d to complete = %f \n", i+1, sum/(float)NUM_BARRIERS);
+		i++;
+	}
+	printf("\n\n");
+
+	// Avg time taken by all threads
+	i = 0;
+	float netVal = 0.0;
+	float sum = 0.0;
+	while(i < NUM_THREADS) {
+		j = 0, sum = 0.0;
+		while(j < NUM_BARRIERS)
+		{
+			sum+=endTime[j][i]-startTime[j][i];
+			j++;
+		}
+		netVal += sum/(float)NUM_BARRIERS;
+		i++;
+	}
+	printf("ALGORITHM -- DISSEMINATION (Thread# = %d, Barrier# = %d) -- Average time taken by threads to complete = %f s\n\n", NUM_THREADS, NUM_BARRIERS, netVal/NUM_THREADS);
+	return 0;
 }
